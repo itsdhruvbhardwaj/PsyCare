@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jigsaw Puzzle</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        body {
+            background-image: url('../../src/assets/music_bg.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #ffffff;
+            user-select: none;
+            position: relative;
+        }
+
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%);
+            backdrop-filter: blur(8px);
+            z-index: -1;
+        }
+
+        h1 {
+            font-size: 2.5em;
+            color: #333;
+            margin-bottom: 20px;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            z-index: 1;
+        }
+
+        .game-container {
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            text-align: center;
+            width: fit-content;
+            z-index: 1;
+            position: relative;
+            transition: all 0.3s ease-in-out;
+            border-bottom: 5px solid rgba(166, 130, 227, 0.5);
+            margin: 20px;
+        }
+
+        .game-container:hover {
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+
+        #puzzle-container {
+            display: grid;
+            border: 5px solid #a682e3; 
+            background-color: rgba(255, 255, 255, 0.6);
+            border-radius: 15px;
+            box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+            transition: all 0.3s ease;
+        }
+        
+        .puzzle-piece {
+            background-size: cover;
+            border: 1px solid #e0e0e0;
+            cursor: grab;
+            transition: transform 0.2s, box-shadow 0.2s;
+            touch-action: none;
+        }
+        
+        .puzzle-piece:hover {
+            box-shadow: inset 0 0 0 3px #6a1b9a;
+        }
+
+        .puzzle-piece.dragging {
+            opacity: 0.8;
+            cursor: grabbing;
+            z-index: 1000;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+
+        #controls {
+            text-align: center;
+            margin-top: 25px;
+            z-index: 1;
+        }
+
+        #status {
+            font-size: 1.2em;
+            margin-top: 15px;
+            font-weight: 600;
+            color: #333;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.2);
+        }
+
+        #reset-button {
+            padding: 12px 28px;
+            font-size: 1em;
+            color: #ffffff;
+            background: linear-gradient(135deg, #a682e3 0%, #6a1b9a 100%);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        #reset-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <h1>Jigsaw Puzzle</h1>
+    <div class="game-container">
+        <div id="puzzle-container"></div>
+        <div id="status">Drag and drop pieces to solve the puzzle!</div>
+    </div>
+    <div id="controls">
+        <button id="reset-button">Reset</button>
+    </div>
+
+    <script>
+        const puzzleContainer = document.getElementById('puzzle-container');
+        const resetButton = document.getElementById('reset-button');
+        const statusDiv = document.getElementById('status');
+        
+        const image = new Image();
+        image.src = 'https://picsum.photos/800/800'; 
+        const gridSize = 3;
+        const pieces = [];
+
+        let isSolving = false;
+
+        image.onload = function() {
+            createPuzzle();
+        };
+
+        image.onerror = function() {
+            statusDiv.textContent = 'Error loading image. Please check the URL.';
+        };
+        
+        function createPuzzle() {
+            pieces.length = 0;
+            puzzleContainer.innerHTML = '';
+            puzzleContainer.style.gridTemplateColumns = `repeat(${gridSize}, 1fr)`;
+            puzzleContainer.style.width = '600px';
+            puzzleContainer.style.height = '600px';
+
+            const pieceWidth = puzzleContainer.clientWidth / gridSize;
+            const pieceHeight = puzzleContainer.clientHeight / gridSize;
+
+            for (let i = 0; i < gridSize * gridSize; i++) {
+                const piece = document.createElement('div');
+                piece.className = 'puzzle-piece';
+                piece.style.width = `${pieceWidth}px`;
+                piece.style.height = `${pieceHeight}px`;
+                piece.style.backgroundImage = `url(${image.src})`;
+                piece.style.backgroundSize = `${puzzleContainer.clientWidth}px ${puzzleContainer.clientHeight}px`;
+                piece.draggable = true;
+                
+                const x = i % gridSize;
+                const y = Math.floor(i / gridSize);
+
+                piece.style.backgroundPosition = `-${x * pieceWidth}px -${y * pieceHeight}px`;
+                piece.dataset.index = i;
+                pieces.push(piece);
+            }
+            shufflePieces();
+            isSolving = true;
+            statusDiv.textContent = "Drag and drop pieces to solve the puzzle!";
+        }
+        
+        function shufflePieces() {
+            const shuffledPieces = [...pieces];
+            for (let i = shuffledPieces.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                [shuffledPieces[i], shuffledPieces[j]] = [shuffledPieces[j], shuffledPieces[i]];
+            }
+            shuffledPieces.forEach(piece => puzzleContainer.appendChild(piece));
+        }
+        
+        // Drag and drop logic
+        let dragged = null;
+        
+        puzzleContainer.addEventListener('dragstart', (e) => {
+            if (!isSolving) return;
+            dragged = e.target;
+            dragged.classList.add('dragging');
+            e.dataTransfer.effectAllowed = 'move';
+        });
+        
+        puzzleContainer.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            const target = e.target;
+            if (target && target.classList.contains('puzzle-piece') && dragged !== target) {
+                target.style.boxShadow = 'inset 0 0 0 5px #4575bf';
+            }
+        });
+
+        puzzleContainer.addEventListener('dragleave', (e) => {
+            const target = e.target;
+            if (target && target.classList.contains('puzzle-piece')) {
+                target.style.boxShadow = '';
+            }
+        });
+        
+        puzzleContainer.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const target = e.target;
+            target.style.boxShadow = '';
+            if (target && target.classList.contains('puzzle-piece') && dragged !== target) {
+                swapPieces(dragged, target);
+            }
+            dragged.classList.remove('dragging');
+            checkWin();
+        });
+
+        function swapPieces(piece1, piece2) {
+            const parent = piece1.parentNode;
+            
+            const temp = document.createElement('div');
+            parent.insertBefore(temp, piece2);
+            parent.insertBefore(piece2, piece1);
+            parent.insertBefore(piece1, temp);
+            parent.removeChild(temp);
+        }
+        
+        function checkWin() {
+            const currentOrder = Array.from(puzzleContainer.children);
+            let solved = true;
+            for (let i = 0; i < currentOrder.length; i++) {
+                if (parseInt(currentOrder[i].dataset.index) !== i) {
+                    solved = false;
+                    break;
+                }
+            }
+            if (solved) {
+                isSolving = false;
+                statusDiv.textContent = 'Puzzle Solved! 🎉 Starting a new puzzle...';
+
+                const pieces = puzzleContainer.children;
+                for (const piece of pieces) {
+                    piece.style.border = '1px solid rgba(255,255,255,0.3)';
+                    piece.draggable = false;
+                }
+
+                // Load a new puzzle after 2 seconds with a new random image
+                setTimeout(() => {
+                    image.src = `https://picsum.photos/800/800?random=${Date.now()}`;
+                }, 2000);
+            }
+        }
+        
+        resetButton.addEventListener('click', () => {
+            image.src = `https://picsum.photos/800/800?random=${Date.now()}`;
+        });
+        window.addEventListener('resize', createPuzzle);
+        
+        image.onload = createPuzzle;
+    </script>
+</body>
+</html>

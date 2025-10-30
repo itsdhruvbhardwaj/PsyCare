@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <title>Maze Game</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&display=swap');
+
+        body {
+            /* Local background image and styling */
+            background-image: url('../../src/assets/music_bg.jpg'); 
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            font-family: 'Poppins', sans-serif;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            color: #ffffff;
+            user-select: none;
+            position: relative;
+        }
+
+        /* Frosted glass overlay */
+        body::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, rgba(255,255,255,0.6) 0%, rgba(255,255,255,0.4) 50%, rgba(255,255,255,0.1) 100%);
+            backdrop-filter: blur(8px);
+            z-index: -1;
+        }
+
+        .game-container {
+            /* Styled like the audio list cards */
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            border-radius: 20px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+            padding: 30px;
+            text-align: center;
+            max-width: 90%;
+            width: fit-content;
+            z-index: 1;
+            position: relative;
+            transition: all 0.3s ease-in-out;
+            border-bottom: 5px solid rgba(166, 130, 227, 0.5);
+        }
+
+        .game-container:hover {
+            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.15);
+            transform: translateY(-3px);
+        }
+
+        h1 {
+            margin-bottom: 15px;
+            font-size: 2em;
+            color: #333;
+            font-weight: 700;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin: 0 0 15px 0; /* Removed top margin to decrease space */
+        }
+
+        canvas {
+            background: rgba(0, 0, 0, 0.05);
+            border: 2px solid rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            margin: 10px auto;
+            display: block;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.05);
+        }
+
+        .controls-container {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        #score-display {
+            font-size: 1.5em;
+            color: #333;
+            font-weight: 600;
+            text-shadow: 0 1px 2px rgba(255,255,255,0.2);
+            margin-bottom: 15px;
+        }
+
+        #restart-button {
+            padding: 12px 28px;
+            font-size: 1em;
+            color: #ffffff;
+            background: linear-gradient(135deg, #a682e3 0%, #6a1b9a 100%);
+            border: none;
+            border-radius: 50px;
+            cursor: pointer;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
+            transition: all 0.2s ease-in-out;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        #restart-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.25);
+            opacity: 0.9;
+        }
+    </style>
+</head>
+<body>
+    <div class="game-container">
+        <h1>Maze Puzzle</h1>
+        <canvas id="mazeCanvas" width="800" height="450"></canvas>
+        <div class="controls-container">
+            <p id="score-display">Score: 0</p>
+            <button id="restart-button">Restart Game</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById("mazeCanvas");
+        const ctx = canvas.getContext("2d");
+        const restartBtn = document.getElementById("restart-button");
+        const scoreDisplay = document.getElementById("score-display");
+
+        const rows = 9;
+        const cols = 16;
+        const tileSize = canvas.width / cols;
+
+        const mazeTemplate = [
+            ["S", 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0, 0, 0],
+            [1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0, 1, 0],
+            [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0, 0, 1, 0],
+            [0, 1, 1, 1, 1, 1, 1, 0, 1, 0, 1, 1, 1, 0, 1, 0],
+            [0, 1, 0, 0, 0, 0, 1, 0, 1, 0, 1, 0, 1, 0, 0, 0],
+            [0, 1, 0, 1, 1, 0, 1, 0, 0, 0, 1, 0, 1, 0, 1, 0],
+            [0, 0, 0, 1, 0, 0, 1, 1, 1, 0, 1, 0, 1, 0, 1, 0],
+            [0, 1, 1, 1, 0, 1, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0],
+            [0, 0, 0, 0, 0, 1, 0, 1, 1, 0, 0, 0, 1, 0, "G", 0],
+        ];
+
+        let maze, player, score, isGameOver;
+
+        function initGame() {
+            maze = JSON.parse(JSON.stringify(mazeTemplate));
+            player = { row: 0, col: 0 };
+            score = 0;
+            isGameOver = false;
+            updateScore();
+            draw();
+        }
+
+        function updateScore() {
+            scoreDisplay.textContent = `Score: ${score}`;
+        }
+
+        function drawMaze() {
+            for (let r = 0; r < rows; r++) {
+                for (let c = 0; c < cols; c++) {
+                    let cell = maze[r][c];
+                    if (cell === 1) {
+                        ctx.fillStyle = "#8a6dc2"; /* Maze wall color */
+                    } else if (cell === "S") {
+                        ctx.fillStyle = "#6a1b9a"; /* Start point color */
+                    } else if (cell === "G") {
+                        ctx.fillStyle = "#ff6b6b"; /* Goal color */
+                    } else {
+                        ctx.fillStyle = "rgba(255, 255, 255, 0.7)"; /* Path color */
+                    }
+                    ctx.fillRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                    ctx.strokeStyle = "rgba(0, 0, 0, 0.1)"; /* Subtle grid lines */
+                    ctx.strokeRect(c * tileSize, r * tileSize, tileSize, tileSize);
+                }
+            }
+        }
+
+        function drawPlayer() {
+            if (isGameOver) return;
+            ctx.fillStyle = "#4575bf"; /* Player color */
+            ctx.beginPath();
+            ctx.arc(
+                player.col * tileSize + tileSize / 2,
+                player.row * tileSize + tileSize / 2,
+                tileSize / 3,
+                0,
+                Math.PI * 2
+            );
+            ctx.shadowColor = 'rgba(0,0,0,0.5)';
+            ctx.shadowBlur = 5;
+            ctx.fill();
+            ctx.shadowColor = 'transparent'; // Reset shadow
+        }
+
+        function drawOverlay(text) {
+            ctx.fillStyle = "rgba(255, 255, 255, 0.8)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = "#333";
+            ctx.font = "bold 48px Poppins";
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawMaze();
+            drawPlayer();
+        }
+
+        function checkWin() {
+            if (maze[player.row][player.col] === "G") {
+                isGameOver = true;
+                draw();
+                drawOverlay("🎉 Congratulations!");
+            }
+        }
+
+        window.addEventListener("keydown", (e) => {
+            if (isGameOver) return;
+
+            let newRow = player.row;
+            let newCol = player.col;
+            let moved = false;
+
+            if (["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight", "w", "a", "s", "d"].includes(e.key.toLowerCase())) {
+                e.preventDefault();
+            }
+
+            if (e.key === "ArrowUp" || e.key.toLowerCase() === "w") {
+                newRow--;
+            } else if (e.key === "ArrowDown" || e.key.toLowerCase() === "s") {
+                newRow++;
+            } else if (e.key === "ArrowLeft" || e.key.toLowerCase() === "a") {
+                newCol--;
+            } else if (e.key === "ArrowRight" || e.key.toLowerCase() === "d") {
+                newCol++;
+            }
+
+            if (
+                newRow >= 0 &&
+                newRow < rows &&
+                newCol >= 0 &&
+                newCol < cols &&
+                maze[newRow][newCol] !== 1
+            ) {
+                if (player.row !== newRow || player.col !== newCol) {
+                    player.row = newRow;
+                    player.col = newCol;
+                    score++;
+                    updateScore();
+                    moved = true;
+                }
+            }
+            
+            draw();
+            if (moved) {
+                checkWin();
+            }
+        });
+
+        restartBtn.addEventListener("click", initGame);
+
+        initGame();
+    </script>
+</body>
+</html>
